@@ -1,0 +1,101 @@
+package com.example.weather
+import android.os.AsyncTask
+import com.google.gson.Gson
+import java.io.IOException
+import java.net.URL
+import android.os.Bundle
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import com.example.weather.WeatherResponse
+import com.example.weather.WeatherApiService
+import com.example.weather.WeatherApiClient
+import retrofit2.http.GET
+import retrofit2.http.Query
+
+class MainActivity : ComponentActivity() {
+    private lateinit var userFieldEditText: EditText
+    private lateinit var mainButton: Button
+    private lateinit var resultInfoTextView: TextView
+    data class WeatherData(
+        val temp: Double,
+        val humidity: Int,
+        val description: String
+    )
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.main_activity)
+
+        // Инициализация элементов
+
+        userFieldEditText = findViewById(R.id.user_field)
+        mainButton = findViewById(R.id.main_button)
+        resultInfoTextView = findViewById(R.id.result_info)
+        // Добавление обработчика нажатия для кнопки
+        mainButton.setOnClickListener {
+            val userInput = userFieldEditText.text.toString().trim()
+            val isUserInputEmpty = userInput.isEmpty()
+            if (isUserInputEmpty) {
+                // Текстовое поле пустое
+                runOnUiThread {
+                    resultInfoTextView.text = getString(R.string.no_user_input)
+                }
+            } else {
+                // Текстовое поле не пустое
+                val city = userFieldEditText.text.toString()
+                val key = "562a9d5822f994aed97e81f294574079"
+                val url = "https://api.openweathermap.org/data/2.5/weather?q=$city&appid=$key&units=metric&lang=ru"
+                val getUrlDataTask = GetUrlDataTask()
+                getUrlDataTask.execute(url)
+            }
+        }
+    }
+    private inner class GetUrlDataTask : AsyncTask<String, String, String>() {
+        override fun doInBackground(vararg params: String?): String? {
+            val url = params[0]
+
+            return try {
+                val jsonResponse = URL(url).readText()
+                jsonResponse
+            } catch (e: IOException) {
+                e.printStackTrace()
+                null
+            }
+        }
+
+        override fun onPostExecute(result: String?) {
+            if (result.isNullOrEmpty()) {
+                // Обработка ошибки получения данных
+                Toast.makeText(this@MainActivity, "Ошибка получения данных", Toast.LENGTH_SHORT).show()
+            } else {
+                // Обработка успешно полученных данных
+                val weatherData = parseWeatherData(result)
+                displayWeatherData(weatherData)
+            }
+        }
+    }
+    private fun parseWeatherData(jsonData: String): Double {
+        val gson = Gson()
+       //  return gson.fromJson(jsonData, WeatherData::class.java)
+        val weatherResponse = gson.fromJson(jsonData, WeatherResponse::class.java)
+        return weatherResponse.main.temp
+    }
+    private fun displayWeatherData(weatherData: Double) {
+        runOnUiThread {
+            // Обновление пользовательского интерфейса с данными погоды
+            resultInfoTextView.text = "Температура: $weatherData"
+        }
+    }
+
+}
